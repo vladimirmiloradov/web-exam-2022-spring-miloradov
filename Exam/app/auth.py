@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import LoginManager, login_user, logout_user, login_required
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import User
+import functools
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -37,3 +38,15 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+def check_rights(action):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            user = load_user(kwargs.get('user_id'))
+            if not current_user.can(action, record=user):
+                flash('У вас недостаточно прав для доступа к данной странице.', 'danger')
+                return redirect(url_for('index'))
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator

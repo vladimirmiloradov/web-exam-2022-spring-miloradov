@@ -2,8 +2,10 @@ import sqlalchemy as sa
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import UserMixin
 from flask import url_for
-from app import db
+from app import db, app
 import os
+from users_policy import UsersPolicy 
+
 
 class Book(db.Model):
     __tablename__ = 'books'
@@ -17,6 +19,7 @@ class Book(db.Model):
     volume = db.Column(db.String(100), nullable=False)
     rating_sum = db.Column(db.Integer, nullable=False, default=0)
     rating_num = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=sa.sql.func.now())
 
     def __repr__(self):
         return '<Book %r>' % self.name
@@ -58,16 +61,31 @@ class User(db.Model, UserMixin):
     @property
     def full_name(self):
         return ' '.join([self.last_name, self.first_name, self.middle_name or ''])
+    
+    @property
+    def is_admin(self):
+        return app.config.get('ADMIN_ROLE_ID') == self.role_id
+    
+    @property
+    def is_moder(self):
+        return app.config.get('MODER_ROLE_ID') == self.role_id
 
     def __repr__(self):
         return '<User %r>' % self.login
+
+    def can(self, action, record=None):
+        users_policy = UsersPolicy(record=record)
+        method = getattr(users_policy, action, None)
+        if method is not None:
+            return method()
+        return False
 
 class Review(db.Model):
     __tablename__ = 'reviews'
 
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
     rating = db.Column(db.Integer, nullable=False)
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, server_default=sa.sql.func.now())
@@ -85,7 +103,7 @@ class Image(db.Model):
     filename = db.Column(db.String(100), nullable=False)
     mime_type = db.Column(db.String(100), nullable=False)
     md5_hash = db.Column(db.String(100), nullable=False, unique=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
     object_id = db.Column(db.Integer)
     object_type = db.Column(db.String(100))
 
@@ -116,8 +134,8 @@ class Join(db.Model):
     __tablename__ = 'join'
 
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
-    genre_id = db.Column(db.Integer, db.ForeignKey('genres.id'))
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
+    genre_id = db.Column(db.Integer, db.ForeignKey('genres.id', ondelete='CASCADE'))
 
     book = db.relationship('Book')
     genre = db.relationship('Genre')
