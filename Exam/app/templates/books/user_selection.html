@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+
+    <h1>Список книг:</h1>
+
+    <div class="row">
+        {% for book in books %}
+        <div class="card col-md-2 me-3 mb-3" style="width: 18rem;">
+            <img src="{{ images[loop.index0] }}" class="card-img-top book-logo" alt="...">
+            <div class="card-body">
+                <h5 class="card-title book-name">{{ book.name }}</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><b>Жанры:</b> {{ genres[loop.index0] }}.</li>
+                <li class="list-group-item"><b>Год издания:</b> {{ book.publication_year }}.</li>
+                <li class="list-group-item"><b>Рейтинг:</b> {{ book.rating }}. </li>
+                <li class="list-group-item"><b>Количество оценок:</b> {{ book.rating_num }}</li>
+            </ul>
+            {% if current_user.is_authenticated %}
+            <div class="btn-group-vertical align-items-center container" role="group" style="width:99%;">
+                <a data-role="button" class="btn btn-outline-dark" href="{{ url_for('books.show', book_id=book.id) }}">Просмотр</a>
+                {% if current_user.can('update', record=current_user) %}
+                <a data-role="button" class="btn btn-outline-dark" href="{{ url_for('books.edit', book_id=book.id) }}">Редактировать</a>
+                {% endif %}
+                {% if current_user.can('delete', record=current_user) %}
+                <button type="button" class="btn btn-outline-dark" data-url="{{ url_for('books.delete', book_id=book.id) }}" data-bs-toggle="modal" data-bs-target="#delete-book-modal">Удалить</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="modal fade" id="delete-book-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="exampleModalLabel">Удаление книги</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              Вы уверены, что хотите удалить книгу <b><span id="book-name-id"></span></b>?
+              <form action="" method="POST">
+                  <input id="delete-btn" type="submit" class="d-none">
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+              <label class="btn btn-danger" for="delete-btn">Да</label>
+            </div>
+          </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

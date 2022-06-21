@@ -39,7 +39,7 @@
     {{ render_five_last_reviews(review) }}
 
     <div class="d-flex justify-content-center">
-        <button class="mb-5 me-3 text-center btn btn-dark" data-url="{##}" data-bs-toggle="modal" data-bs-target="#add-selection-book-modal">Добавить в подборку</button>
+        <button class="mb-5 me-3 text-center btn btn-dark" data-url="{{ url_for('books.add_book_to_selection', book_id=book.id) }}" data-bs-toggle="modal" data-bs-target="#add-selection-book-modal">Добавить в подборку</button>
         <a href="{{ url_for('books.reviews', book_id=book.id) }}" class="mb-5 text-center btn btn-dark">Все отзывы</a>
     </div>
     
@@ -51,17 +51,17 @@
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-            <div class="mb-3">
-                <label for="category">Выберите свою подборку, в которую хотите добавить книгу:</label>
-                <select class="form-select" name="selection" id="selection" multiple>
-                    {% for selection in selections %} 
-                        <option value="{{ selection.id }}" {% if selection.id in selected %}selected{% endif %}>{{ selection.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-              <form method="POST" action="{{ url }}" enctype="multipart/form-data">
-                  <input id="add-btn" type="submit" class="d-none">
-              </form>
+            <form method="POST" action="{{ url_for('books.add_book_to_selection', book_id=book.id) }}" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="category">Выберите свою подборку, в которую хотите добавить книгу:</label>
+                    <select class="form-select" name="selection" id="selection" multiple>
+                        {% for selection in selections %} 
+                            <option value="{{ selection.id }}">{{ selection.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input id="add-btn" type="submit" class="d-none">
+            </form>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>

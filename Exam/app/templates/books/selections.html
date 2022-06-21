@@ -17,9 +17,9 @@
       <tr>
         <th scope="row">{{ selection.id }}</th>
         <td>{{ selection.name }}</td>
-        <td>{##}</td>
+        <td>{{ array_counts[loop.index0] }}</td>
         <td>
-            <a class="btn btn-dark me-3" href="{# url_for('books.show_user_selection', selection_id=selection.id) #}">Просмотр</a>
+            <a class="btn btn-dark me-3" href="{{ url_for('books.show_user_selection', selection_id=selection.id) }}">Просмотр</a>
         </td>
       </tr>
     {% endfor %}
