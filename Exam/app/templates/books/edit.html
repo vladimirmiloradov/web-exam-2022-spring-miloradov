@@ -5,6 +5,6 @@
 
 <h1 class="ms-3">Редактирование книги</h1>
 
-{{ render_book(url_for('books.update', book_id=book.id), genres, book, selected, current_user) }}
+{{ render_book(url_for('books.update', book_id=book.id), genres, selected, book) }}
 
 {% endblock %}

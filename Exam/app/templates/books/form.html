@@ -1,4 +1,4 @@
-{% macro render_book(url, book, genres, selected, current_user) %}
+{% macro render_book(url, genres, selected=[], book=[]) %}
     <div class="container">
 
         <form method="POST" action="{{ url }}" enctype="multipart/form-data">
