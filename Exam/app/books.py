@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_login import current_user, login_required
 from app import db
-from models import Book, User, Review, Genre, Join, Image
+from models import Book, User, Review, Genre, Join, Image, Selection
 from tools import BooksFilter, ImageSaver, ReviewsFilter
 from auth import check_rights
 import os
@@ -16,9 +16,13 @@ PER_PAGE_REVIEWS = 10
 
 BOOK_PARAMS = ['name', 'short_desc', 'publication_year', 'publishing_house', 'author', 'volume']
 REVIEW_PARAMS = ['book_id', 'user_id', 'rating', 'text']
+SELECTION_PARAMS = ['name','user_id']
 
 def params():
     return { p: request.form.get(p) for p in BOOK_PARAMS }
+
+def selection_params():
+    return { p: request.form.get(p) for p in SELECTION_PARAMS }
 
 def review_params():
     return { p: request.form.get(p) for p in REVIEW_PARAMS }
@@ -85,7 +89,7 @@ def edit(book_id):
     for genre in genres_arr:
         selected.append(genre.genre.id)
     book = Book.query.filter_by(id=book_id).one()
-    return render_template('books/edit.html', book=book, genres=genres, selected=selected)
+    return render_template('books/edit.html', genres=genres, selected=selected, book=book)
 
 @bp.route('/<int:book_id>/update', methods=['POST'])
 @login_required
@@ -167,3 +171,24 @@ def reviews_sort(book_id):
     reviews = pagination.items
     return render_template('books/reviews.html', reviews=reviews, books=books, req_form=req_form, pagination=pagination, search_params=search_params_review(book_id))
 
+@bp.route('/user_selections')
+@login_required
+def user_selections():
+    endpoint = '/books/user_selections'
+    selections = Selection.query.filter_by(user_id=current_user.id).all()
+    return render_template('books/selections.html', endpoint=endpoint, selections=selections)
+
+@bp.route('/user_selections/<int:selection_id>/show_user_selection')
+@login_required
+def show_user_selection(selection_id):
+    return render_template('books/user_selection.html')
+
+@bp.route('/<int:user_id>/create_selection', methods=['POST'])
+@login_required
+def create_selection(user_id):
+    selection = Selection(**selection_params())
+    selection.user_id = user_id
+    db.session.add(selection)
+    db.session.commit()
+    flash(f'Подборка {selection.name} была успешно добавлена!', 'success')
+    return redirect(url_for('books.user_selections'))

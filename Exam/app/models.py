@@ -143,6 +143,30 @@ class Join(db.Model):
     def __repr__(self):
         return '<Join %r>' % self.id
 
+class Selection(db.Model):
+    __tablename__ = 'selections'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
+
+    user = db.relationship('User')
+
+    def __repr__(self):
+        return '<Selection %r>' % self.name
+
+class BookSelection(db.Model):
+    __tablename__ = 'book_selection'
+
+    id = db.Column(db.Integer, primary_key=True)
+    selection_id = db.Column(db.Integer, db.ForeignKey('selections.id', ondelete='CASCADE'))
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
+
+    selection = db.relationship('Selection')
+    book = db.relationship('Book')
+
+    def __repr__(self):
+        return '<BookSelection %r>' % self.id
 
 
 
