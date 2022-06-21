@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_login import current_user, login_required
 from app import db
-from models import Book, User, Review, Genre, Join, Image, Selection
+from models import Book, User, Review, Genre, Join, Image, Selection, BookSelection
 from tools import BooksFilter, ImageSaver, ReviewsFilter
 from auth import check_rights
 import os
@@ -127,7 +127,8 @@ def show(book_id):
     genres = ', '.join(genres)
     img = Image.query.filter_by(book_id=book_id).first()
     img = img.url
-    return render_template('books/show.html', book=books, review=reviews, users=users, user_review=user_review, genres=genres, image=img)
+    selections = Selection.query.filter_by(user_id=current_user.id).all()
+    return render_template('books/show.html', book=books, review=reviews, users=users, user_review=user_review, genres=genres, image=img, selections=selections)
 
 @bp.route('/<int:book_id>', methods=['POST'])
 @login_required
@@ -176,12 +177,37 @@ def reviews_sort(book_id):
 def user_selections():
     endpoint = '/books/user_selections'
     selections = Selection.query.filter_by(user_id=current_user.id).all()
-    return render_template('books/selections.html', endpoint=endpoint, selections=selections)
+    array_counts = []
+    for selection in selections:
+        sel_id = selection.id
+        count = len(BookSelection.query.filter_by(selection_id=sel_id).all())
+        array_counts.append(count)
+    return render_template('books/selections.html', endpoint=endpoint, selections=selections, array_counts=array_counts)
 
 @bp.route('/user_selections/<int:selection_id>/show_user_selection')
 @login_required
 def show_user_selection(selection_id):
-    return render_template('books/user_selection.html')
+    array_books_ids = []
+    rows = BookSelection.query.filter_by(selection_id=selection_id).all()
+    for row in rows:
+        array_books_ids.append(row.book_id)
+    books = []
+    for id in array_books_ids:
+        book = Book.query.filter_by(id=id).first()
+        books.append(book)
+    print(books)
+    images = []
+    genres_arr = []
+    for book in books:
+        image = Image.query.filter_by(book_id=book.id).first()
+        images.append(image.url)
+        genres_rows = Join.query.filter_by(book_id=book.id).all()
+        genres = []
+        for genre in genres_rows:
+            genres.append(genre.genre.name)
+        genres_str =', '.join(genres)
+        genres_arr.append(genres_str)
+    return render_template('books/user_selection.html', books=books, search_params=search_params(), images=images, genres=genres_arr)
 
 @bp.route('/<int:user_id>/create_selection', methods=['POST'])
 @login_required
@@ -192,3 +218,15 @@ def create_selection(user_id):
     db.session.commit()
     flash(f'Подборка {selection.name} была успешно добавлена!', 'success')
     return redirect(url_for('books.user_selections'))
+
+@bp.route('/<int:book_id>/add_book_to_selection', methods=['POST'])
+@login_required
+def add_book_to_selection(book_id):
+    selection = request.form.get('selection')
+    row = BookSelection()
+    row.book_id = book_id
+    row.selection_id = selection
+    db.session.add(row)
+    db.session.commit()
+    flash(f'Книга была успешно добавлена в подборку!', 'success')
+    return redirect(url_for('books.show', book_id=book_id))
