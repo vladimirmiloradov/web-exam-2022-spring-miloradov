@@ -26,11 +26,11 @@
                     <span class="navbar-text ms-auto me-3" style="color: white;">
                        {{ current_user.last_name }} {{ current_user.first_name }} {{ current_user.middle_name or '' }}
                     </span>
-                    {% if endpoint=='/books/user_selections' %}
+                    {% if endpoint=='/books/user_selections' and current_user.can('create_selection', record=current_user) %}
                     <div class="d-flex">
                         <a class="btn btn-outline-light me-3" href="{{ url_for('index') }}">Вернуться на главную</a>
                     </div>
-                    {% else %}
+                    {% elif current_user.can('create_selection', record=current_user) %}
                     <div class="d-flex">
                         <a class="btn btn-outline-light me-3" href="{{ url_for('books.user_selections') }}">Мои подборки</a>
                     </div>
