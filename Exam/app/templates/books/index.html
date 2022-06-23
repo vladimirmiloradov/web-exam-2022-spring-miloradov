@@ -10,6 +10,7 @@
     <div class="row">
         {% for book in books %}
         <div class="card col-md-2 me-3 mb-3" style="width: 18rem;">
+          <p>
             <img src="{{ images[loop.index0] }}" class="card-img-top book-logo" alt="...">
             <div class="card-body">
                 <h5 class="card-title book-name">{{ book.name }}</h5>
@@ -31,14 +32,10 @@
                 {% endif %}
             </div>
             {% endif %}
+          </p>
         </div>
         {% endfor %}
     </div>
-
- </div>
-
-
-
 
     <div class="modal fade" id="delete-book-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
