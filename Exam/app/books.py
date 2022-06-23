@@ -7,6 +7,8 @@ from auth import check_rights
 import os
 import markdown
 import bleach
+from sqlalchemy import exc
+import hashlib
 
 
 bp = Blueprint('books', __name__, url_prefix='/books')
@@ -63,13 +65,26 @@ def new():
 def create():
     book = Book(**params())
     book.short_desc = bleach.clean(book.short_desc)
-    db.session.add(book)
-    db.session.commit()
+    try:
+        db.session.add(book)
+        db.session.commit()
+    except exc.SQLAlchemyError:
+        db.session.rollback()
+        flash('При сохранении данных возникла ошибка. Проверьте корректность введённых данных.', 'danger')
+        return redirect(url_for('books.new'))
     book = Book.query.order_by(Book.id.desc()).first()
     f = request.files.get('background_img')
     if f and f.filename:
         img = ImageSaver(f).save(book.id)
+        if img == None:
+            db.session.delete(book)
+            db.session.commit()
+            flash('При сохранении данных возникла ошибка. Проверьте корректность введённых данных.', 'danger')
+            return redirect(url_for('books.new'))
     array_genres = request.form.getlist('genre')
+    if len(array_genres) == 0:
+        flash('При сохранении данных возникла ошибка. Выберите жанры для книги.', 'danger')
+        return redirect(url_for('books.new'))
     for genre in array_genres:
         book_genre = Join()
         book_genre.book_id = book.id
@@ -118,11 +133,13 @@ def show(book_id):
     reviews = Review.query.filter_by(book_id=book_id).limit(5)
     user_review = None
     if current_user.is_authenticated is True:
-        user_review = Review.query.filter_by(book_id=book_id, user_id=current_user.id).first()    
+        user_review = Review.query.filter_by(book_id=book_id, user_id=current_user.id).first()
+        if user_review:
+            user_review.text = markdown.markdown(user_review.text)
     users = User.query.all()
-    genres_quer = Join.query.filter_by(book_id=book_id).all()
+    book_genres = Join.query.filter_by(book_id=book_id).all()
     genres=[]
-    for genre in genres_quer:
+    for genre in book_genres:
         genres.append(genre.genre.name)
     genres = ', '.join(genres)
     img = Image.query.filter_by(book_id=book_id).first()
@@ -136,44 +153,36 @@ def apply_review(book_id):
     books = Book.query.filter_by(id=book_id).first()
     review = Review(**review_params())
     review.text = bleach.clean(review.text)
+    if not review.text:
+        review.text = None
     books.rating_sum += int(review.rating)
     books.rating_num += 1
-    db.session.add(review)
-    db.session.commit()
-    flash('Ваш отзыв успешно записан!', 'success')
-    return redirect(url_for('books.show', book_id=books.id))
+    try:
+        db.session.add(review)
+        db.session.commit()
+        flash('Ваш отзыв успешно записан!', 'success')
+        return redirect(url_for('books.show', book_id=books.id))
+    except exc.SQLAlchemyError:
+        db.session.rollback()
+        flash('Ошибка записи отзыва! Отзыв не может быть пустым!', 'danger')
+        return redirect(url_for('books.apply_review', book_id=books.id))
+
+
 
 @bp.route('/<int:book_id>/reviews')
 @login_required
 def reviews(book_id):
+    param = request.args.get('param')
     page = request.args.get('page', 1, type=int)
-    reviews = ReviewsFilter(book_id).perform_date_desc()
+    reviews = ReviewsFilter(book_id).sorting(param)
     books = Book.query.filter_by(id=book_id).first()
     pagination = reviews.paginate(page, PER_PAGE_REVIEWS)
     reviews = pagination.items
-    return render_template('books/reviews.html', reviews=reviews, books=books, pagination=pagination, search_params=search_params_review(book_id))
-
-@bp.route('/<int:book_id>/reviews', methods=['POST'])
-@login_required
-def reviews_sort(book_id):
-    page = request.args.get('page', 1, type=int)
-    reviews = ReviewsFilter(book_id).perform_date_desc()
-    if request.form.get('sort') == 'new':
-        reviews = ReviewsFilter(book_id).perform_date_desc()
-    if request.form.get('sort') == 'old':
-        reviews = ReviewsFilter(book_id).perform_date_asc()
-    if request.form.get('sort') == 'good':
-        reviews = ReviewsFilter(book_id).perform_rating_desc()
-    if request.form.get('sort') == 'bad':
-        reviews = ReviewsFilter(book_id).perform_rating_asc()
-    req_form = request.form.get('sort')
-    books = Book.query.filter_by(id=book_id).first()
-    pagination = reviews.paginate(page, PER_PAGE_REVIEWS)
-    reviews = pagination.items
-    return render_template('books/reviews.html', reviews=reviews, books=books, req_form=req_form, pagination=pagination, search_params=search_params_review(book_id))
+    return render_template('books/reviews.html', reviews=reviews, books=books, pagination=pagination, search_params=search_params_review(book_id), param=param)
 
 @bp.route('/user_selections')
 @login_required
+@check_rights('create_selection')
 def user_selections():
     endpoint = '/books/user_selections'
     selections = Selection.query.filter_by(user_id=current_user.id).all()
@@ -186,6 +195,7 @@ def user_selections():
 
 @bp.route('/user_selections/<int:selection_id>/show_user_selection')
 @login_required
+@check_rights('create_selection')
 def show_user_selection(selection_id):
     array_books_ids = []
     rows = BookSelection.query.filter_by(selection_id=selection_id).all()
@@ -196,21 +206,22 @@ def show_user_selection(selection_id):
         book = Book.query.filter_by(id=id).first()
         books.append(book)
     print(books)
-    images = []
-    genres_arr = []
+    images_for_books = []
+    book_genres = []
     for book in books:
         image = Image.query.filter_by(book_id=book.id).first()
-        images.append(image.url)
+        images_for_books.append(image.url)
         genres_rows = Join.query.filter_by(book_id=book.id).all()
         genres = []
         for genre in genres_rows:
             genres.append(genre.genre.name)
         genres_str =', '.join(genres)
-        genres_arr.append(genres_str)
-    return render_template('books/user_selection.html', books=books, search_params=search_params(), images=images, genres=genres_arr)
+        book_genres.append(genres_str)
+    return render_template('books/user_selection.html', books=books, search_params=search_params(), images=images_for_books, genres=book_genres)
 
 @bp.route('/<int:user_id>/create_selection', methods=['POST'])
 @login_required
+@check_rights('create_selection')
 def create_selection(user_id):
     selection = Selection(**selection_params())
     selection.user_id = user_id
@@ -221,12 +232,17 @@ def create_selection(user_id):
 
 @bp.route('/<int:book_id>/add_book_to_selection', methods=['POST'])
 @login_required
+@check_rights('create_selection')
 def add_book_to_selection(book_id):
     selection = request.form.get('selection')
     row = BookSelection()
     row.book_id = book_id
     row.selection_id = selection
-    db.session.add(row)
-    db.session.commit()
-    flash(f'Книга была успешно добавлена в подборку!', 'success')
-    return redirect(url_for('books.show', book_id=book_id))
+    try:
+        db.session.add(row)
+        db.session.commit()
+        flash(f'Книга была успешно добавлена в подборку!', 'success')
+        return redirect(url_for('books.show', book_id=book_id))
+    except exc.SQLAlchemyError:
+        flash('Ошибка при добавлении книги в подборку! Выберите подборку.', 'danger')
+        return redirect(url_for('books.show', book_id=row.book_id))

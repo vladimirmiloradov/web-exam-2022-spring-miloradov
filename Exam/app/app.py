@@ -44,7 +44,7 @@ def index():
     pagination = books.paginate(page, PER_PAGE)
     books = pagination.items
     images = []
-    genres_arr = []
+    book_genres = []
     for book in books:
         image = Image.query.filter_by(book_id=book.id).first()
         images.append(image.url)
@@ -53,8 +53,8 @@ def index():
         for genre in genres_rows:
             genres.append(genre.genre.name)
         genres_str =', '.join(genres)
-        genres_arr.append(genres_str)
-    return render_template('books/index.html', books=books, pagination=pagination, search_params=search_params(), images=images, genres=genres_arr)
+        book_genres.append(genres_str)
+    return render_template('books/index.html', books=books, pagination=pagination, search_params=search_params(), images=images, genres=book_genres)
 
 @app.route('/media/images/<image_id>')
 def image(image_id):

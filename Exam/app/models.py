@@ -16,7 +16,7 @@ class Book(db.Model):
     publication_year = db.Column(db.Integer, nullable=False)
     publishing_house = db.Column(db.String(100), nullable=False)
     author = db.Column(db.String(100), nullable=False)
-    volume = db.Column(db.String(100), nullable=False)
+    volume = db.Column(db.Integer, nullable=False)
     rating_sum = db.Column(db.Integer, nullable=False, default=0)
     rating_num = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, server_default=sa.sql.func.now())
@@ -69,6 +69,10 @@ class User(db.Model, UserMixin):
     @property
     def is_moder(self):
         return app.config.get('MODER_ROLE_ID') == self.role_id
+    
+    @property
+    def is_user(self):
+        return app.config.get('USER_ROLE_ID') == self.role_id
 
     def __repr__(self):
         return '<User %r>' % self.login
@@ -102,7 +106,7 @@ class Image(db.Model):
     id = db.Column(db.String(100), primary_key=True)
     filename = db.Column(db.String(100), nullable=False)
     mime_type = db.Column(db.String(100), nullable=False)
-    md5_hash = db.Column(db.String(100), nullable=False, unique=True)
+    md5_hash = db.Column(db.String(100), nullable=False)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
     object_id = db.Column(db.Integer)
     object_type = db.Column(db.String(100))
@@ -159,7 +163,7 @@ class BookSelection(db.Model):
     __tablename__ = 'book_selection'
 
     id = db.Column(db.Integer, primary_key=True)
-    selection_id = db.Column(db.Integer, db.ForeignKey('selections.id', ondelete='CASCADE'))
+    selection_id = db.Column(db.Integer, db.ForeignKey('selections.id', ondelete='CASCADE'), nullable=False)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'))
 
     selection = db.relationship('Selection')

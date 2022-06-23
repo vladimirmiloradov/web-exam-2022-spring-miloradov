@@ -3,7 +3,10 @@ import hashlib
 import uuid
 import os
 from werkzeug.utils import secure_filename
+from flask import request, flash
 from app import db, app
+from sqlalchemy import exc
+
 
 class BooksFilter:
     def __init__(self, name):
@@ -36,14 +39,25 @@ class ReviewsFilter:
     def perform_rating_asc(self):
         return self.query.order_by(Review.rating.asc())
 
+    def sorting(self, param):
+        reviews = self.perform_date_desc()
+        if param == 'old':
+            reviews = self.perform_date_asc()
+        elif param == 'good':
+            reviews = self.perform_rating_desc()
+        elif param == 'bad':
+            reviews = self.perform_rating_asc()
+        return reviews
+
 class ImageSaver:
     def __init__(self, file):
         self.file = file
     
     def save(self, book_id):
         self.img = self.__find_by_md5_hash()
+        flag = False
         if self.img is not None:
-            return self.img
+            flag = True
         file_name = secure_filename(self.file.filename)
         self.img = Image(
             id=str(uuid.uuid4()), 
@@ -51,10 +65,15 @@ class ImageSaver:
             mime_type=self.file.mimetype, 
             md5_hash=self.md5_hash
         )
-        self.file.save(os.path.join(app.config['UPLOAD_FOLDER'], self.img.storage_filename ))
+        if flag != True:
+            self.file.save(os.path.join(app.config['UPLOAD_FOLDER'], self.img.storage_filename ))
         self.img.book_id = book_id
-        db.session.add(self.img)
-        db.session.commit()
+        try:
+            db.session.add(self.img)
+            db.session.commit()
+        except exc.SQLAlchemyError: 
+            db.session.rollback()
+            return flash('Книга с такой обложкой уже существует!', 'danger')      
         return self.img
 
 

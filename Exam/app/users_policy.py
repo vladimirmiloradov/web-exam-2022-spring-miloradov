@@ -18,3 +18,6 @@ class UsersPolicy:
 
     def view(self):
         return current_user.is_admin
+    
+    def create_selection(self):
+        return current_user.is_user
